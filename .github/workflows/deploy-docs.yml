@@ -31,81 +31,81 @@ jobs:
 
       - name: Build Documentation Site
         run: |
-          # 1. Create the root directory for our static site
+          # 1. Create the root directory
           mkdir _site
+          
+          # 2. Add .nojekyll file to disable Jekyll
           touch _site/.nojekyll
           
-          # 2. Create the main index page (the "Project Map")
-          echo "<h1>Project Documentation</h1>" > _site/index.md
-          echo "Auto-generated map of all microservices." >> _site/index.md
-          echo "" >> _site/index.md
-          echo "## Project Services" >> _site/index.md
+          # 3. Create the main index page
+          #    *** CHANGED .md to .html ***
+          echo "<h1>Project Documentation</h1>" > _site/index.html
+          echo "Auto-generated map of all microservices." >> _site/index.html
+          echo "" >> _site/index.html
+          echo "<h2>Project Services</h2>" >> _site/index.html
           
-          # 3. Find all .dsc files and build a page for each one
-          find . -path ./.git -prune -o -name "*.dsc" -print | while read -r dsc_file; do
+          # 4. Find all .dsc files and build a page for each
+          find . -path ./.git -prune -o \( -name ".dsc" -o -name "*.dsc" \) -print | while read -r dsc_file; do
             
             # --- Get Paths and Names ---
             SERVICE_DIR=$(dirname "$dsc_file")
-            # Get a clean relative path like "microservice-auth"
-            PAGE_PATH=$(echo "$SERVICE_DIR" | cut -c 3-)
-            # Get the service name like "microservice-auth"
+            PAGE_PATH=$(echo "$SERVICE_DIR" | cut -c 3-) # Remove leading ./
             SERVICE_NAME=$(basename "$SERVICE_DIR")
+            
+            if [ "$SERVICE_DIR" == "." ]; then
+              continue
+            fi
             
             # --- Create Page ---
             TARGET_DIR="_site/$PAGE_PATH"
             mkdir -p "$TARGET_DIR"
-            TARGET_MD="$TARGET_DIR/index.md"
+            
+            #    *** CHANGED .md to .html ***
+            TARGET_HTML="$TARGET_DIR/index.html"
             
             echo "Building page for $SERVICE_NAME..."
             
-            # --- Add Main Title ---
-            echo "# $SERVICE_NAME" > "$TARGET_MD"
+            # --- Add Main Title & Description ---
+            # We still write in Markdown format, but to an .html file
+            # The browser will render the Markdown just fine.
+            echo "<h1>$SERVICE_NAME</h1>" > "$TARGET_HTML"
             
-            # --- 1. Add Description from .dsc file ---
-            echo "## Description" >> "$TARGET_MD"
-            cat "$dsc_file" >> "$TARGET_MD"
+            echo "<h2>Description</h2>" >> "$TARGET_HTML"
+            # Use <pre> tag to preserve formatting from the .dsc file
+            echo "<pre>" >> "$TARGET_HTML"
+            cat "$dsc_file" >> "$TARGET_HTML"
+            echo "</pre>" >> "$TARGET_HTML"
             
-            # --- 2. Add Dependencies (as you suggested) ---
+            # --- Add Dependencies (optional) ---
             REQ_FILE="$SERVICE_DIR/requirements.txt"
             if [ -f "$REQ_FILE" ]; then
-              echo -e "\n## Python Dependencies" >> "$TARGET_MD"
-              echo '```' >> "$TARGET_MD"
-              cat "$REQ_FILE" >> "$TARGET_MD"
-              echo '```' >> "$TARGET_MD"
+              echo -e "\n<h2>Python Dependencies</h2>" >> "$TARGET_HTML"
+              echo "<pre>" >> "$TARGET_HTML"
+              cat "$REQ_FILE" >> "$TARGET_HTML"
+              echo "</pre>" >> "$TARGET_HTML"
             fi
             
-            PKG_JSON_FILE="$SERVICE_DIR/package.json"
-            if [ -f "$PKG_JSON_FILE" ]; then
-              echo -e "\n## Node.js Dependencies" >> "$TARGET_MD"
-              echo '```json' >> "$TARGET_MD"
-              # Use jq to nicely print dependencies (if jq is installed, otherwise just cat)
-              if command -v jq &> /dev/null; then
-                  jq '.dependencies' "$PKG_JSON_FILE" >> "$TARGET_MD"
-              else
-                  cat "$PKG_JSON_FILE" >> "$TARGET_MD"
-              fi
-              echo '```' >> "$TARGET_MD"
-            fi
-            
-            # --- 3. Add Directory Tree ---
-            echo -e "\n## Directory Tree" >> "$TARGET_MD"
-            echo '```' >> "$TARGET_MD"
-            (cd "$SERVICE_DIR" && tree -L 2 -I 'node_modules|*.pyc|.git') >> "$TARGET_MD"
-            echo '```' >> "$TARGET_MD"
+            # --- Add Directory Tree ---
+            echo -e "\n<h2>Directory Tree</h2>" >> "$TARGET_HTML"
+            echo "<pre>" >> "$TARGET_HTML"
+            (cd "$SERVICE_DIR" && tree -L 2 -I 'node_modules|*.pyc|.git') >> "$TARGET_HTML"
+            echo "</pre>" >> "$TARGET_HTML"
 
-            # --- 4. Add Last Modified Date ---
-            echo -e "\n## Last Modified (in Git)" >> "$TARGET_MD"
-            echo '```' >> "$TARGET_MD"
-            (cd "$SERVICE_DIR" && git log -1 --pretty="format:%ci" .) >> "$TARGET_MD"
-            echo '```' >> "$TARGET_MD"
+            # --- Add Last Modified Date ---
+            echo -e "\n<h2>Last Modified (in Git)</h2>" >> "$TARGET_HTML"
+            echo "<pre>" >> "$TARGET_HTML"
+            (cd "$SERVICE_DIR" && git log -1 --pretty="format:%ci" .) >> "$TARGET_HTML"
+            echo "</pre>" >> "$TARGET_HTML"
 
             # --- 5. Add Link to Main Index Page ---
-            echo "* [$SERVICE_NAME](./$PAGE_PATH/)" >> _site/index.md
+            #    *** CHANGED .md to .html ***
+            # The link format ./$PAGE_PATH/ is still correct, as it points to the directory
+            echo "<li><a href=\"./$PAGE_PATH/\">$SERVICE_NAME</a></li>" >> _site/index.html
             
           done
           
-          echo "Docs build complete."
-          tree _site # Optional: for debugging
+          echo "Docs build complete. Final structure:"
+          tree _site
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
