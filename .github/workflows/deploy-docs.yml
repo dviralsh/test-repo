@@ -34,79 +34,100 @@ jobs:
           # 1. Create the root directory
           mkdir _site
           
-          # 2. Add .nojekyll file to disable Jekyll
+          # 2. Add .nojekyll file
           touch _site/.nojekyll
           
-          # 3. Create the main index page
-          #    *** CHANGED .md to .html ***
-          echo "<h1>Project Documentation</h1>" > _site/index.html
-          echo "Auto-generated map of all microservices." >> _site/index.html
-          echo "" >> _site/index.html
-          echo "<h2>Project Services</h2>" >> _site/index.html
+          # --- NEW ---
+          # 3. Copy the stylesheet
+          cp .github/style.css _site/style.css
           
-          # 4. Find all .dsc files and build a page for each
+          # 4. Create the main index.html page
+          echo "<!DOCTYPE html>" > _site/index.html
+          echo "<html lang='en'>" >> _site/index.html
+          echo "<head>" >> _site/index.html
+          echo "  <meta charset='UTF-8'>" >> _site/index.html
+          echo "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>" >> _site/index.html
+          echo "  <title>Project Documentation</title>" >> _site/index.html
+          echo "  <link rel='stylesheet' href='style.css'>" >> _site/index.html
+          echo "</head>" >> _site/index.html
+          echo "<body>" >> _site/index.html
+          echo "<main>" >> _site/index.html
+          echo "  <h1>Project Documentation</h1>" >> _site/index.html
+          echo "  <p>Auto-generated map of all microservices.</p>" >> _site/index.html
+          echo "  <h2>Project Services</h2>" >> _site/index.html
+          echo "  <ul>" >> _site/index.html # Use a list
+          
+          # 5. Find and build all service pages
           find . -path ./.git -prune -o \( -name ".dsc" -o -name "*.dsc" \) -print | while read -r dsc_file; do
             
-            # --- Get Paths and Names ---
             SERVICE_DIR=$(dirname "$dsc_file")
-            PAGE_PATH=$(echo "$SERVICE_DIR" | cut -c 3-) # Remove leading ./
+            PAGE_PATH=$(echo "$SERVICE_DIR" | cut -c 3-)
             SERVICE_NAME=$(basename "$SERVICE_DIR")
             
-            if [ "$SERVICE_DIR" == "." ]; then
-              continue
-            fi
+            if [ "$SERVICE_DIR" == "." ]; then continue; fi
             
-            # --- Create Page ---
             TARGET_DIR="_site/$PAGE_PATH"
             mkdir -p "$TARGET_DIR"
-            
-            #    *** CHANGED .md to .html ***
             TARGET_HTML="$TARGET_DIR/index.html"
             
             echo "Building page for $SERVICE_NAME..."
             
-            # --- Add Main Title & Description ---
-            # We still write in Markdown format, but to an .html file
-            # The browser will render the Markdown just fine.
-            echo "<h1>$SERVICE_NAME</h1>" > "$TARGET_HTML"
+            # --- Build the service's HTML file ---
+            echo "<!DOCTYPE html>" > "$TARGET_HTML"
+            echo "<html lang='en'>" >> "$TARGET_HTML"
+            echo "<head>" >> "$TARGET_HTML"
+            echo "  <meta charset='UTF-8'>" >> "$TARGET_HTML"
+            echo "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>" >> "$TARGET_HTML"
+            echo "  <title>$SERVICE_NAME</title>" >> "$TARGET_HTML"
+            #   --- NEW: Relative path to CSS ---
+            echo "  <link rel='stylesheet' href='../../style.css'>" >> "$TARGET_HTML"
+            echo "</head>" >> "$TARGET_HTML"
+            echo "<body>" >> "$TARGET_HTML"
+            echo "<main>" >> "$TARGET_HTML"
+            echo "  <h1>$SERVICE_NAME</h1>" >> "$TARGET_HTML"
+            echo "  <a href='../..'>&larr; Back to Project Map</a>" >> "$TARGET_HTML"
             
-            echo "<h2>Description</h2>" >> "$TARGET_HTML"
-            # Use <pre> tag to preserve formatting from the .dsc file
-            echo "<pre>" >> "$TARGET_HTML"
+            echo "  <h2>Description</h2>" >> "$TARGET_HTML"
+            echo "  <pre>" >> "$TARGET_HTML"
             cat "$dsc_file" >> "$TARGET_HTML"
-            echo "</pre>" >> "$TARGET_HTML"
+            echo "  </pre>" >> "$TARGET_HTML"
             
-            # --- Add Dependencies (optional) ---
             REQ_FILE="$SERVICE_DIR/requirements.txt"
             if [ -f "$REQ_FILE" ]; then
-              echo -e "\n<h2>Python Dependencies</h2>" >> "$TARGET_HTML"
-              echo "<pre>" >> "$TARGET_HTML"
+              echo -e "\n  <h2>Python Dependencies</h2>" >> "$TARGET_HTML"
+              echo "  <pre>" >> "$TARGET_HTML"
               cat "$REQ_FILE" >> "$TARGET_HTML"
-              echo "</pre>" >> "$TARGET_HTML"
+              echo "  </pre>" >> "$TARGET_HTML"
             fi
             
-            # --- Add Directory Tree ---
-            echo -e "\n<h2>Directory Tree</h2>" >> "$TARGET_HTML"
-            echo "<pre>" >> "$TARGET_HTML"
+            echo -e "\n  <h2>Directory Tree</h2>" >> "$TARGET_HTML"
+            echo "  <pre>" >> "$TARGET_HTML"
             (cd "$SERVICE_DIR" && tree -L 2 -I 'node_modules|*.pyc|.git') >> "$TARGET_HTML"
-            echo "</pre>" >> "$TARGET_HTML"
+            echo "  </pre>" >> "$TARGET_HTML"
 
-            # --- Add Last Modified Date ---
-            echo -e "\n<h2>Last Modified (in Git)</h2>" >> "$TARGET_HTML"
-            echo "<pre>" >> "$TARGET_HTML"
+            echo -e "\n  <h2>Last Modified (in Git)</h2>" >> "$TARGET_HTML"
+            echo "  <pre>" >> "$TARGET_HTML"
             (cd "$SERVICE_DIR" && git log -1 --pretty="format:%ci" .) >> "$TARGET_HTML"
-            echo "</pre>" >> "$TARGET_HTML"
+            echo "  </pre>" >> "$TARGET_HTML"
+            
+            echo "</main>" >> "$TARGET_HTML"
+            echo "</body>" >> "$TARGET_HTML"
+            echo "</html>" >> "$TARGET_HTML"
 
-            # --- 5. Add Link to Main Index Page ---
-            #    *** CHANGED .md to .html ***
-            # The link format ./$PAGE_PATH/ is still correct, as it points to the directory
-            echo "<li><a href=\"./$PAGE_PATH/\">$SERVICE_NAME</a></li>" >> _site/index.html
+            # --- Add Link to Main Index Page ---
+            echo "  <li><a href='./$PAGE_PATH/'>$SERVICE_NAME</a></li>" >> _site/index.html
             
           done
           
+          # --- Close the list, main, and body tags on the index page ---
+          echo "  </ul>" >> _site/index.html
+          echo "</main>" >> _site/index.html
+          echo "</body>" >> _site/index.html
+          echo "</html>" >> _site/index.html
+          
           echo "Docs build complete. Final structure:"
           tree _site
-
+          
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
