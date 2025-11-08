@@ -33,6 +33,7 @@ jobs:
         run: |
           # 1. Create the root directory for our static site
           mkdir _site
+          touch _site/.nojekyll
           
           # 2. Create the main index page (the "Project Map")
           echo "<h1>Project Documentation</h1>" > _site/index.md
